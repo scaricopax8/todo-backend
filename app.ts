@@ -25,8 +25,21 @@ app.get("/todos", (req, res) => {
   res.json(todos);
 });
 
-app.post("/todos", (req, res) => {
-  const todo = req.body;
-  todos.push(todo);
-  res.status(201).json(todo);
+
+// POST /todos - add a new todo
+app.post('/todos', (req, res) => {
+  const { task, completed = false } = req.body;
+
+  if (!task) {
+    return res.status(400).json({ error: 'Task is required' });
+  }
+
+  const newTodo = {
+    id: todos.length + 1,
+    task,
+    completed
+  };
+
+  todos.push(newTodo);
+  res.status(201).json(newTodo);
 });
