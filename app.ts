@@ -1,8 +1,12 @@
 /// <reference types="node" />
 // app.ts
 import express from "express";
+import { Todo } from "./ts/index";
+import todosJson from "./__mocks__/todos.json";
+
 const app = express();
 const PORT = 3000;
+const todos: Todo[] = todosJson;
 
 // Middleware to parse JSON
 app.use(express.json());
@@ -16,14 +20,6 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
-
-
-let todos: string[] = [
-  'Buy groceries',
-  'Trim my beard',
-  'Wash my car',
-  'Clean my room',
-];
 
 app.get("/todos", (req, res) => {
   res.json(todos);

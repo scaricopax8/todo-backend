@@ -1,0 +1,5 @@
+[
+  { "id": 1, "task": "Learn Express", "completed": false },
+  { "id": 2, "task": "Build a To-Do API", "completed": false },
+  { "id": 3, "task": "Test endpoints", "completed": true }
+]
