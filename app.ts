@@ -1,6 +1,6 @@
 /// <reference types="node" />
 // app.ts
-const express = require("express");
+import express, { Request, Response } from "express";
 const app = express();
 const PORT = 3000;
 
@@ -8,7 +8,7 @@ const PORT = 3000;
 app.use(express.json());
 
 // Sample route
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.send("Hello from Express!");
 });
 
