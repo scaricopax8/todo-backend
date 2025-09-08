@@ -13,15 +13,75 @@ exports.getTodos = async (_req: any, res: any) => {
 // POST /todos - add a new todo (persist to PostgreSQL)
 exports.createTodo = async (req: any, res: any) => {
   try {
-    const { task, completed = false } = req.body;
+    const {
+      task,
+      description = null,
+      completed = false,
+      completed_at = null,
+      due_date = null,
+      priority = 'medium',
+      tags = [],
+      archived = false,
+    } = req.body || {};
 
     if (typeof task !== 'string' || task.trim() === '') {
       return res.status(400).json({ error: 'Task is required' });
     }
 
-    const insertQuery =
-      'INSERT INTO todos (task, completed) VALUES ($1, $2) RETURNING *';
-    const values = [task, completed];
+    if (description !== null && typeof description !== 'string') {
+      return res.status(400).json({ error: 'Description must be a string or null' });
+    }
+
+    if (typeof completed !== 'boolean') {
+      return res.status(400).json({ error: 'Completed must be a boolean' });
+    }
+
+    if (completed_at !== null && Number.isNaN(Date.parse(completed_at))) {
+      return res.status(400).json({ error: 'completed_at must be an ISO datetime string or null' });
+    }
+
+    if (due_date !== null) {
+      if (typeof due_date !== 'string') {
+        return res.status(400).json({ error: 'due_date must be a YYYY-MM-DD string or null' });
+      }
+    }
+
+    const allowedPriorities = new Set(['low', 'medium', 'high']);
+    if (!allowedPriorities.has(priority)) {
+      return res.status(400).json({ error: "priority must be one of 'low','medium','high'" });
+    }
+
+    if (!Array.isArray(tags) || !tags.every((t: any) => typeof t === 'string')) {
+      return res.status(400).json({ error: 'tags must be an array of strings' });
+    }
+
+    if (typeof archived !== 'boolean') {
+      return res.status(400).json({ error: 'archived must be a boolean' });
+    }
+
+    // Determine completed_at if completed is true and no explicit timestamp provided
+    let completedAtValue: any = completed_at;
+    if (completed === true && completed_at === null) {
+      completedAtValue = new Date();
+    }
+
+    const insertQuery = `
+      INSERT INTO todos (
+        task, description, completed, completed_at, due_date, priority, tags, archived
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+
+    const values = [
+      task,
+      description,
+      completed,
+      completedAtValue,
+      due_date,
+      priority,
+      tags,
+      archived,
+    ];
 
     const result = await pool.query(insertQuery, values);
     const createdTodo = result.rows[0];
@@ -42,7 +102,16 @@ exports.updateTodo = async (req: any, res: any) => {
       return res.status(400).json({ error: 'Invalid id' });
     }
 
-    const { task, completed } = req.body;
+    const {
+      task,
+      description,
+      completed,
+      completed_at,
+      due_date,
+      priority,
+      tags,
+      archived,
+    } = req.body || {};
 
     const setClauses: string[] = [];
     const values: any[] = [];
@@ -55,7 +124,16 @@ exports.updateTodo = async (req: any, res: any) => {
       setClauses.push(`task = $${values.length}`);
     }
 
-    if (completed !== undefined) {
+    if (description !== undefined) {
+      if (description !== null && typeof description !== 'string') {
+        return res.status(400).json({ error: 'Description must be a string or null' });
+      }
+      values.push(description);
+      setClauses.push(`description = $${values.length}`);
+    }
+
+    const completedProvided = completed !== undefined;
+    if (completedProvided) {
       if (typeof completed !== 'boolean') {
         return res.status(400).json({ error: 'Completed must be a boolean' });
       }
@@ -63,9 +141,61 @@ exports.updateTodo = async (req: any, res: any) => {
       setClauses.push(`completed = $${values.length}`);
     }
 
+    const completedAtProvided = completed_at !== undefined;
+    if (completedAtProvided) {
+      if (completed_at !== null && Number.isNaN(Date.parse(completed_at))) {
+        return res.status(400).json({ error: 'completed_at must be an ISO datetime string or null' });
+      }
+      values.push(completed_at);
+      setClauses.push(`completed_at = $${values.length}`);
+    } else if (completedProvided) {
+      // No explicit completed_at provided, infer based on completed flag
+      if (completed === true) {
+        setClauses.push(`completed_at = NOW()`);
+      } else if (completed === false) {
+        setClauses.push(`completed_at = NULL`);
+      }
+    }
+
+    if (due_date !== undefined) {
+      if (due_date !== null && typeof due_date !== 'string') {
+        return res.status(400).json({ error: 'due_date must be a YYYY-MM-DD string or null' });
+      }
+      values.push(due_date);
+      setClauses.push(`due_date = $${values.length}`);
+    }
+
+    if (priority !== undefined) {
+      const allowedPriorities = new Set(['low', 'medium', 'high']);
+      if (!allowedPriorities.has(priority)) {
+        return res.status(400).json({ error: "priority must be one of 'low','medium','high'" });
+      }
+      values.push(priority);
+      setClauses.push(`priority = $${values.length}`);
+    }
+
+    if (tags !== undefined) {
+      if (!Array.isArray(tags) || !tags.every((t: any) => typeof t === 'string')) {
+        return res.status(400).json({ error: 'tags must be an array of strings' });
+      }
+      values.push(tags);
+      setClauses.push(`tags = $${values.length}`);
+    }
+
+    if (archived !== undefined) {
+      if (typeof archived !== 'boolean') {
+        return res.status(400).json({ error: 'archived must be a boolean' });
+      }
+      values.push(archived);
+      setClauses.push(`archived = $${values.length}`);
+    }
+
     if (setClauses.length === 0) {
       return res.status(400).json({ error: 'Nothing to update' });
     }
+
+    // Always update the updated_at timestamp
+    setClauses.push('updated_at = NOW()');
 
     values.push(todoId);
     const updateQuery = `UPDATE todos SET ${setClauses.join(', ')} WHERE id = $${values.length} RETURNING *`;
