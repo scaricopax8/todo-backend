@@ -1,15 +1,4 @@
-// TODO: Leverage Zod for schema validation
-// const pool = require("../db");
 const todoService = require("./service");
-
-// TODO: Add some validation to the controller
-// Can you delete a completed todo?
-// Can you archive a todo?
-// Can you unarchive a todo?
-// Can you mark a todo as completed?
-// Can you mark a todo as not completed?
-// Can you update a todo?
-// Can you get a todo by id?
 
 exports.getTodos = async (_req: any, res: any) => {
   try {

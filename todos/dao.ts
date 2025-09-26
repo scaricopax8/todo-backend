@@ -1,4 +1,3 @@
-// Actual DB implementation would go here
 const pool = require("../db");
 import { Todo } from "../ts";
 
