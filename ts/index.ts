@@ -9,8 +9,8 @@ export interface Todo {
   task: string;
   description?: string | null;
   completed: boolean;
-  completed_at?: string | null;
-  due_date?: string | null;
+  completed_at?: Date | null;
+  due_date?: Date | null;
   priority: Priority;
   tags: string[];
   archived: boolean;

@@ -1,9 +1,8 @@
-// CAN YOU DO THIS?
-
 // TODO: Leverage Zod for schema validation
-const pool = require("../db");
+// const pool = require("../db");
+const todoService = require("./service");
 
-// TODO: Add some business logic to the controller
+// TODO: Add some validation to the controller
 // Can you delete a completed todo?
 // Can you archive a todo?
 // Can you unarchive a todo?
@@ -14,8 +13,8 @@ const pool = require("../db");
 
 exports.getTodos = async (_req: any, res: any) => {
   try {
-    const result = await pool.query("SELECT * FROM todos ORDER BY id");
-    res.json(result.rows);
+    const todos = await todoService.getTodos();
+    res.json(todos);
   } catch (err) {
     console.error("Error fetching todos:", err);
     res.status(500).json({ error: "Failed to fetch todos" });
@@ -84,33 +83,16 @@ exports.createTodo = async (req: any, res: any) => {
       return res.status(400).json({ error: "archived must be a boolean" });
     }
 
-    // Determine completed_at if completed is true and no explicit timestamp provided
-    let completedAtValue: any = completed_at;
-    if (completed === true && completed_at === null) {
-      completedAtValue = new Date();
-    }
-
-    // TODO: Pull this out into a service layer
-    const insertQuery = `
-      INSERT INTO todos (
-        task, description, completed, completed_at, due_date, priority, tags, archived
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `;
-
-    const values = [
+    const createdTodo = await todoService.createTodo({
       task,
       description,
       completed,
-      completedAtValue,
+      completed_at,
       due_date,
       priority,
       tags,
       archived,
-    ];
-
-    const result = await pool.query(insertQuery, values);
-    const createdTodo = result.rows[0];
+    });
 
     return res.status(201).json(createdTodo);
   } catch (err) {
@@ -138,17 +120,14 @@ exports.updateTodo = async (req: any, res: any) => {
       archived,
     } = req.body || {};
 
-    const setClauses: string[] = [];
-    const values: any[] = [];
-
+    const updateData = {};
     if (task !== undefined) {
       if (typeof task !== "string" || task.trim() === "") {
         return res
           .status(400)
           .json({ error: "Task must be a non-empty string" });
       }
-      values.push(task);
-      setClauses.push(`task = $${values.length}`);
+      Object.assign(updateData, { task });
     }
 
     if (description !== undefined) {
@@ -157,21 +136,17 @@ exports.updateTodo = async (req: any, res: any) => {
           .status(400)
           .json({ error: "Description must be a string or null" });
       }
-      values.push(description);
-      setClauses.push(`description = $${values.length}`);
+      Object.assign(updateData, { description });
     }
 
-    const completedProvided = completed !== undefined;
-    if (completedProvided) {
+    if (completed !== undefined) {
       if (typeof completed !== "boolean") {
         return res.status(400).json({ error: "Completed must be a boolean" });
       }
-      values.push(completed);
-      setClauses.push(`completed = $${values.length}`);
+      Object.assign(updateData, { completed });
     }
 
-    const completedAtProvided = completed_at !== undefined;
-    if (completedAtProvided) {
+    if (completed_at !== undefined) {
       if (completed_at !== null && Number.isNaN(Date.parse(completed_at))) {
         return res
           .status(400)
@@ -179,15 +154,7 @@ exports.updateTodo = async (req: any, res: any) => {
             error: "completed_at must be an ISO datetime string or null",
           });
       }
-      values.push(completed_at);
-      setClauses.push(`completed_at = $${values.length}`);
-    } else if (completedProvided) {
-      // No explicit completed_at provided, infer based on completed flag
-      if (completed === true) {
-        setClauses.push(`completed_at = NOW()`);
-      } else if (completed === false) {
-        setClauses.push(`completed_at = NULL`);
-      }
+      Object.assign(updateData, { completed_at });
     }
 
     if (due_date !== undefined) {
@@ -196,8 +163,7 @@ exports.updateTodo = async (req: any, res: any) => {
           .status(400)
           .json({ error: "due_date must be a YYYY-MM-DD string or null" });
       }
-      values.push(due_date);
-      setClauses.push(`due_date = $${values.length}`);
+      Object.assign(updateData, { due_date });
     }
 
     if (priority !== undefined) {
@@ -207,8 +173,7 @@ exports.updateTodo = async (req: any, res: any) => {
           .status(400)
           .json({ error: "priority must be one of 'low','medium','high'" });
       }
-      values.push(priority);
-      setClauses.push(`priority = $${values.length}`);
+      Object.assign(updateData, { priority });
     }
 
     if (tags !== undefined) {
@@ -220,36 +185,27 @@ exports.updateTodo = async (req: any, res: any) => {
           .status(400)
           .json({ error: "tags must be an array of strings" });
       }
-      values.push(tags);
-      setClauses.push(`tags = $${values.length}`);
+      Object.assign(updateData, { tags });
     }
 
     if (archived !== undefined) {
       if (typeof archived !== "boolean") {
         return res.status(400).json({ error: "archived must be a boolean" });
       }
-      values.push(archived);
-      setClauses.push(`archived = $${values.length}`);
+      Object.assign(updateData, { archived });
     }
 
-    if (setClauses.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: "Nothing to update" });
     }
 
-    // Always update the updated_at timestamp
-    setClauses.push("updated_at = NOW()");
+    const updatedTodo = await todoService.updateTodo(todoId, updateData);
 
-    values.push(todoId);
-    const updateQuery = `UPDATE todos SET ${setClauses.join(
-      ", "
-    )} WHERE id = $${values.length} RETURNING *`;
-    const result = await pool.query(updateQuery, values);
-
-    if (result.rows.length === 0) {
+    if (!updatedTodo) {
       return res.status(404).json({ error: "Todo not found" });
     }
 
-    return res.json(result.rows[0]);
+    return res.json(updatedTodo);
   } catch (err) {
     console.error("Error updating todo:", err);
     return res.status(500).json({ error: "Failed to update todo" });
@@ -264,16 +220,13 @@ exports.deleteTodo = async (req: any, res: any) => {
       return res.status(400).json({ error: "Invalid id" });
     }
 
-    const result = await pool.query(
-      "DELETE FROM todos WHERE id = $1 RETURNING *",
-      [todoId]
-    );
+    const deletedTodo = await todoService.deleteTodo(todoId);
 
-    if (result.rows.length === 0) {
+    if (!deletedTodo) {
       return res.status(404).json({ error: "Todo not found" });
     }
 
-    return res.json(result.rows[0]);
+    return res.json(deletedTodo);
   } catch (err) {
     console.error("Error deleting todo:", err);
     return res.status(500).json({ error: "Failed to delete todo" });
