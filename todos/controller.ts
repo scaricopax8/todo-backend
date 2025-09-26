@@ -1,3 +1,5 @@
+// TODO: Add Zod schema validation
+
 const todoService = require("./service");
 
 exports.getTodos = async (_req: any, res: any) => {
