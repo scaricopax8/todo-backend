@@ -9,10 +9,10 @@ app.use(express.json());
 
 // Sample route
 app.get("/", (req, res) => {
-  res.send("Hello from Express!");
+  res.send("Welcome to the Todo API!");
 });
 
-const todosRoutes = require("./routes/todosRoutes");
+const todosRoutes = require("./todos/routes");
 app.use("/todos", todosRoutes);
 
 // Start server
