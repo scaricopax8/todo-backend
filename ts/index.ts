@@ -6,6 +6,7 @@ export enum Priority {
 
 export interface Todo {
   id: number;
+  userId: number;
   task: string;
   description?: string | null;
   completed: boolean;
@@ -16,4 +17,10 @@ export interface Todo {
   archived: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
 }

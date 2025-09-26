@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "name": "Buzz Lightyear",
+    "email": "buzz@starcommand.org"
+  },
+  {
+    "id": 2,
+    "name": "Woody Pride",
+    "email": "woody@andysroom.com"
+  },
+  {
+    "id": 3,
+    "name": "Jessie",
+    "email": "jessie@andysroom.com"
+  }
+]
